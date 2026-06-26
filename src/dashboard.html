@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><title>Open Payments Proxy Billing Dashboard</title>
+  <style>
+    body { font-family: sans-serif; background: #f1f5f9; padding: 30px; color: #1e293b; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    .btn { background: #ef4444; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; display: none; text-align: center; text-decoration: none; }
+    #console { background: #0f172a; color: #38bdf8; padding: 15px; border-radius: 6px; height: 250px; overflow-y: auto; font-family: monospace; font-size: 13px; }
+    .grid { display: flex; gap: 20px; } .item { flex: 1; text-align: center; background: #f8fafc; padding: 15px; border-radius: 8px; }
+    .wallet-info { background: #e2e8f0; padding: 10px 15px; border-radius: 6px; font-size: 14px; margin-bottom: 15px; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h2>OpenPayments Interledger Data Proxy Tracker</h2>
+      
+      <div class="wallet-info">👤 <b>User Account:</b> <span id="user-w">Loading...</span></div>
+      <div class="wallet-info">📡 <b>ISP Receiver:</b> <span id="isp-w">Loading...</span></div>
+
+      <a id="consent-btn" href="#" target="_blank" class="btn">⚠️ ACTION REQUIRED: Click Here to Authorize One-Time Billing Consent</a>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+      <div class="grid">
+        <div class="item"><h3>Data Used</h3><div id="mb" style="font-size:24px; font-weight:bold;">0.0000 MB</div></div>
+        <div class="item"><h3>Accrued Fee</h3><div id="cost" style="font-size:24px; font-weight:bold; color:#10b981;">$0.0000</div></div>
+        <div class="item"><h3>Status</h3><div id="status" style="font-size:24px; font-weight:bold;">SETUP</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Live Open Payments / Interledger Ledger Stream Logs</h3>
+      <div id="console"></div>
+    </div>
+  </div>
+  <script>
+    const ws = new WebSocket(`ws://${window.location.host}`);
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      document.getElementById('mb').innerText = data.metrics.totalMB + ' MB';
+      document.getElementById('cost').innerText = '$' + data.metrics.totalCost;
+      document.getElementById('status').innerText = data.metrics.status.toUpperCase();
+      
+      // Map metrics payload safely to UI elements
+      document.getElementById('user-w').innerText = data.metrics.userWallet;
+      document.getElementById('isp-w').innerText = data.metrics.ispWallet;
+
+      const btn = document.getElementById('consent-btn');
+      if (data.redirectUrl) {
+        btn.href = data.redirectUrl;
+        btn.style.display = 'block';
+      } else if (data.metrics.status === 'online') {
+        btn.style.display = 'none';
+      }
+
+      if (data.log) {
+        const p = document.createElement('div');
+        p.innerText = `[${new Date().toLocaleTimeString()}] ${data.log}`;
+        const container = document.getElementById('console');
+        container.appendChild(p); container.scrollTop = container.scrollHeight;
+      }
+    };
+  </script>
+</body>
+</html>

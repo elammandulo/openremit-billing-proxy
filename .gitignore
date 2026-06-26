@@ -1,0 +1,14 @@
+node_modules/
+.env
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+private.key
+coverage/
+dist/
+build/
+.DS_Store
+npm-debug.log*
