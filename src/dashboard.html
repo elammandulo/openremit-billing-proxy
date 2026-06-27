@@ -292,3 +292,189 @@
 
     <div class="card">
       <div class="card-title">Session Activity</div>
+      <div id="console"></div>
+    </div>
+  </div>
+
+  <script>
+    let isSessionLockedAndEnded = false;
+
+    // Load initial status override tracking logic from localStorage to ensure stability across page refreshes
+    window.addEventListener('DOMContentLoaded', () => {
+      const persistedStatus = localStorage.getItem('dataflow_session_status');
+      if (persistedStatus === 'stopped' || !persistedStatus) {
+        setUIVisualStateToInactive();
+      }
+    });
+
+    function showBudgetInput() {
+      document.getElementById('stream-btn').style.display = 'none';
+      document.getElementById('budget-panel').style.display = 'block';
+    }
+
+    function setUIVisualStateToInactive() {
+      document.getElementById('status').innerText = 'Inactive';
+      document.getElementById('status').style.color = 'var(--text-muted)';
+      document.getElementById('status-sub').innerText = 'Waiting to start';
+      document.getElementById('badge-text').innerText = 'Inactive';
+      document.getElementById('badge-dot').style.backgroundColor = 'var(--text-muted)';
+    }
+
+    function addHumanReadableLog(type, text) {
+      const container = document.getElementById('console');
+      if (!container) return;
+      
+      const p = document.createElement('div');
+      p.className = 'log-line';
+      
+      let label = '[INFO]';
+      let style = '';
+      
+      if (type === 'started') { label = '[STARTED]'; style = 'color: var(--success); font-weight: bold;'; }
+      else if (type === 'warning') { label = '[WARNING]'; style = 'color: var(--warning); font-weight: bold;'; }
+      else if (type === 'stopped') { label = '[STOPPED]'; style = 'color: var(--danger); font-weight: bold;'; }
+      
+      p.innerHTML = `<span class="log-time">[${new Date().toLocaleTimeString()}]</span> <span style="${style}">${label}</span> ${text}`;
+      container.appendChild(p); 
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function executeCleanResetFlow() {
+      document.getElementById('limit-modal').classList.remove('active');
+      isSessionLockedAndEnded = false;
+
+      // Reset values cleanly
+      document.getElementById('mb').innerText = '0.00 MB';
+      document.getElementById('cost').innerText = '$0.00';
+      document.getElementById('cost-max').innerText = 'Budget Limit: $0.00';
+      
+      document.getElementById('budget-input').value = '';
+      document.getElementById('form-message').textContent = '';
+
+      // Force state parameters cleanly to Inactive across all memory variables
+      localStorage.setItem('dataflow_session_status', 'stopped');
+      setUIVisualStateToInactive();
+
+      document.getElementById('consent-stage').style.display = 'none';
+      document.getElementById('budget-panel').style.display = 'none';
+      document.getElementById('stream-btn').style.display = 'block';
+      document.getElementById('setup-stage').style.display = 'block';
+      
+      addHumanReadableLog('info', 'Tracker clean reset complete. Ready for new session.');
+    }
+
+    async function submitBudgetAllowance() {
+      const budgetVal = document.getElementById('budget-input').value;
+      const messageEl = document.getElementById('form-message');
+      messageEl.textContent = '';
+
+      if(!budgetVal || budgetVal <= 0) {
+        messageEl.textContent = 'Please enter a data budget limit greater than $0.00.';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/start-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ budget: budgetVal })
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        if(res.ok) {
+          document.getElementById('budget-panel').style.display = 'none';
+          messageEl.textContent = 'Initializing secure wallet sync connection...';
+        } else {
+          messageEl.textContent = payload.error || 'Could not launch data session request.';
+        }
+      } catch (err) {
+        messageEl.textContent = 'Connection error. Please try again.';
+        console.error(err);
+      }
+    }
+
+    const ws = new WebSocket(`ws://${window.location.host}`);
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if(data.metrics.status === 'limit_reached') {
+        if (!isSessionLockedAndEnded) {
+          isSessionLockedAndEnded = true;
+          localStorage.setItem('dataflow_session_status', 'stopped');
+
+          const statusEl = document.getElementById('status');
+          const badgeText = document.getElementById('badge-text');
+          const badgeDot = document.getElementById('badge-dot');
+          
+          statusEl.innerText = 'Stopped';
+          statusEl.style.color = 'var(--danger)';
+          badgeText.innerText = 'Stopped';
+          badgeDot.style.backgroundColor = 'var(--danger)';
+          document.getElementById('status-sub').innerText = 'Session ended: funds exhausted';
+
+          addHumanReadableLog('warning', 'Your data budget has been fully used.');
+          addHumanReadableLog('stopped', 'Session ended automatically.');
+
+          document.getElementById('limit-modal').classList.add('active');
+        }
+        return;
+      }
+
+      if (isSessionLockedAndEnded) return;
+
+      const displayMB = parseFloat(data.metrics.totalMB || 0).toFixed(2);
+      document.getElementById('mb').innerText = displayMB + ' MB';
+      document.getElementById('cost').innerText = '$' + data.metrics.totalCost;
+      document.getElementById('cost-max').innerText = 'Budget Limit: $' + data.metrics.maxBudget;
+      
+      const statusEl = document.getElementById('status');
+      const badgeText = document.getElementById('badge-text');
+      const badgeDot = document.getElementById('badge-dot');
+      const statusSub = document.getElementById('status-sub');
+      
+      if(data.metrics.status === 'online') {
+        localStorage.setItem('dataflow_session_status', 'active');
+        statusEl.innerText = 'Active';
+        statusEl.style.color = 'var(--success)';
+        badgeText.innerText = 'Active';
+        badgeDot.style.backgroundColor = 'var(--success)';
+        statusSub.innerText = 'Tracking your data usage in real time.';
+      } else if(data.metrics.status === 'awaiting_consent') {
+        localStorage.setItem('dataflow_session_status', 'pending');
+        statusEl.innerText = 'Awaiting Approval';
+        statusEl.style.color = 'var(--warning)';
+        badgeText.innerText = 'Pending';
+        badgeDot.style.backgroundColor = 'var(--warning)';
+        statusSub.innerText = 'Waiting for account transaction confirmation';
+      } else if(data.metrics.status === 'idle') {
+        // Enforce translation mapping if backend fires fallback 'idle' status flags
+        statusEl.innerText = 'Inactive';
+        statusEl.style.color = 'var(--text-muted)';
+        badgeText.innerText = 'Inactive';
+        badgeDot.style.backgroundColor = 'var(--text-muted)';
+        statusSub.innerText = 'Waiting to start';
+      }
+
+      const consentStage = document.getElementById('consent-stage');
+      const setupStage = document.getElementById('setup-stage');
+      const consentBtn = document.getElementById('consent-btn');
+
+      if (data.metrics.status === 'idle') {
+        setupStage.style.display = 'block';
+        consentStage.style.display = 'none';
+      } else if (data.redirectUrl) {
+        setupStage.style.display = 'none';
+        consentStage.style.display = 'block';
+        consentBtn.href = data.redirectUrl;
+        addHumanReadableLog('info', 'Secure payment pre-authorisation link generated.');
+      } else if (data.metrics.status === 'online') {
+        if (setupStage.style.display !== 'none' || consentStage.style.display !== 'none') {
+          addHumanReadableLog('started', 'Data session has begun successfully.');
+        }
+        consentStage.style.display = 'none';
+        setupStage.style.display = 'none';
+      }
+    };
+  </script>
+</body>
+</html>

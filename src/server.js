@@ -1,3 +1,6 @@
+// Load environment variables right at the entry point
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
 const path = require('path');
@@ -5,8 +8,9 @@ const { WebSocketServer } = require('ws');
 const { createProxyServer } = require('./proxy');
 const BillingEngine = require('./billing');
 
-const APP_PORT = 3344;
-const PROXY_PORT = 8080;
+// Map network ports and URLs from environment variables with safe defaults
+const APP_PORT = Number(process.env.APP_PORT || 3344);
+const PROXY_PORT = Number(process.env.PROXY_PORT || 8080);
 const CALLBACK_PORT = Number(process.env.CALLBACK_PORT || 3999);
 const CALLBACK_URL = process.env.CALLBACK_URL || `http://localhost:${CALLBACK_PORT}/callback`;
 const UI_BASE_URL = process.env.UI_BASE_URL || `http://localhost:${APP_PORT}/`;
@@ -16,23 +20,24 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 // --- MIDDLEWARE CONFIGURATION ---
-// This line is critical! It allows Express to read json data sent via fetch() from the dashboard
 app.use(express.json());
 
 // --- CONFIGURE INTERLEDGER WALLET PARAMETERS HERE ---
 function normalizeWalletAddressUrl(raw) {
+  if (!raw) return '';
   const v = raw.trim();
   if (!v) return '';
   if (v.startsWith('$')) return `https://${v.slice(1)}`;
   return v;
 }
 
+// Cleanly mapped directly from your .env variables
 const opConfig = {
-  clientWalletAddressUrl: normalizeWalletAddressUrl('$ilp.interledger-test.dev/usd_account'), 
-  sendingWalletAddressUrl: normalizeWalletAddressUrl('$ilp.interledger-test.dev/usd_account'), 
-  receivingWalletAddressUrl: normalizeWalletAddressUrl('$ilp.interledger-test.dev/f44c621'),
-  keyId: 'e0b1b1d6-ed21-4b55-92db-ff682fa94e94',
-  privateKeyPath: 'C:\\Users\\elamm\\openremit-billing-proxy\\private.key', 
+  clientWalletAddressUrl: normalizeWalletAddressUrl(process.env.CLIENT_WALLET_ADDRESS_URL || ''), 
+  sendingWalletAddressUrl: normalizeWalletAddressUrl(process.env.SENDING_WALLET_ADDRESS_URL || ''), 
+  receivingWalletAddressUrl: normalizeWalletAddressUrl(process.env.RECEIVING_WALLET_ADDRESS_URL || ''),
+  keyId: process.env.KEY_ID || '',
+  privateKeyPath: process.env.PRIVATE_KEY_PATH || '', 
   callbackPort: CALLBACK_PORT,
   callbackUrl: CALLBACK_URL
 };
@@ -56,7 +61,7 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
-// 2. NEW ENDPOINT: Receives the user-defined budget from the UI
+// 2. Receives the user-defined budget from the UI
 app.post('/api/start-session', async (req, res) => {
   const { budget } = req.body;
   
