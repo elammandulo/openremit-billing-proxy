@@ -139,22 +139,6 @@
     .metrics-val { font-size: 28px; font-weight: 700; font-family: monospace; letter-spacing: -0.5px; }
     .metrics-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 
-    /* Console Logger Box */
-    #console { 
-      background: #070a12; 
-      color: #e2e8f0; 
-      padding: 18px; 
-      border-radius: 10px; 
-      height: 250px; 
-      overflow-y: auto; 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 14px; 
-      border: 1px solid var(--border);
-      box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
-    }
-    .log-line { margin-bottom: 8px; line-height: 1.4; border-left: 2px solid rgba(255,255,255,0.1); padding-left: 8px; }
-    .log-time { color: var(--text-muted); margin-right: 6px; font-size: 12px; font-family: monospace; }
-
     /* Pop-up Modal Overlay Styles */
     .modal-overlay {
       position: fixed;
@@ -290,10 +274,6 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">Session Activity</div>
-      <div id="console"></div>
-    </div>
   </div>
 
   <script>
@@ -321,22 +301,7 @@
     }
 
     function addHumanReadableLog(type, text) {
-      const container = document.getElementById('console');
-      if (!container) return;
-      
-      const p = document.createElement('div');
-      p.className = 'log-line';
-      
-      let label = '[INFO]';
-      let style = '';
-      
-      if (type === 'started') { label = '[STARTED]'; style = 'color: var(--success); font-weight: bold;'; }
-      else if (type === 'warning') { label = '[WARNING]'; style = 'color: var(--warning); font-weight: bold;'; }
-      else if (type === 'stopped') { label = '[STOPPED]'; style = 'color: var(--danger); font-weight: bold;'; }
-      
-      p.innerHTML = `<span class="log-time">[${new Date().toLocaleTimeString()}]</span> <span style="${style}">${label}</span> ${text}`;
-      container.appendChild(p); 
-      container.scrollTop = container.scrollHeight;
+      // Intentional no-op: Logger UI element removed
     }
 
     function executeCleanResetFlow() {
