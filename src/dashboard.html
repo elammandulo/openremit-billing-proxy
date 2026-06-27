@@ -1,65 +1,294 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"><title>Open Payments Proxy Billing Dashboard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataFlow Session Monitor</title>
   <style>
-    body { font-family: sans-serif; background: #f1f5f9; padding: 30px; color: #1e293b; }
-    .container { max-width: 800px; margin: 0 auto; }
-    .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-    .btn { background: #ef4444; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; display: none; text-align: center; text-decoration: none; }
-    #console { background: #0f172a; color: #38bdf8; padding: 15px; border-radius: 6px; height: 250px; overflow-y: auto; font-family: monospace; font-size: 13px; }
-    .grid { display: flex; gap: 20px; } .item { flex: 1; text-align: center; background: #f8fafc; padding: 15px; border-radius: 8px; }
-    .wallet-info { background: #e2e8f0; padding: 10px 15px; border-radius: 6px; font-size: 14px; margin-bottom: 15px; font-family: monospace; }
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #131a26;
+      --bg-input: #1c2538;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --border: #1e293b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      background: var(--bg-main); 
+      color: var(--text-main); 
+      padding: 40px 20px;
+      line-height: 1.5;
+    }
+    
+    .container { max-width: 1000px; margin: 0 auto; }
+    
+    header {
+      margin-bottom: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+    }
+
+    header h1 { font-size: 24px; font-weight: 700; color: #fff; }
+    header p { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+
+    .connection-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.05);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .badge-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+    .card { 
+      background: var(--bg-card); 
+      border: 1px solid var(--border); 
+      border-radius: 16px; 
+      padding: 24px; 
+      margin-bottom: 24px; 
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+    }
+    
+    .card-title {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+
+    /* Configuration Panel Styles */
+    .wallet-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .wallet-box {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      border-radius: 10px;
+    }
+    .wallet-box label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: bold; }
+    .wallet-box div { font-size: 14px; color: #60a5fa; font-weight: 500; margin-top: 4px; }
+    .wallet-box p { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    .btn { 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center;
+      background: var(--primary); 
+      color: white; 
+      border: none; 
+      padding: 14px 28px; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      font-size: 15px; 
+      font-weight: 600; 
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn-danger { background: var(--danger); }
+    .btn-danger:hover { background: #dc2626; }
+    
+    .input-group { margin-top: 12px; display: flex; gap: 12px; }
+    .input-field { 
+      flex: 1; 
+      padding: 14px; 
+      background: var(--bg-input); 
+      border: 1px solid var(--border); 
+      border-radius: 8px; 
+      color: white;
+      font-size: 16px; 
+      outline: none;
+      transition: border 0.2s;
+    }
+    .input-field:focus { border-color: var(--primary); }
+    #form-message { margin-top: 12px; font-size: 14px; color: var(--warning); font-weight: 500; }
+
+    /* Telemetry Grid Styles */
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; } 
+    .item { 
+      background: rgba(255,255,255,0.02); 
+      border: 1px solid var(--border);
+      padding: 24px; 
+      border-radius: 12px; 
+      position: relative;
+      overflow: hidden;
+    }
+    .item h3 { font-size: 13px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px;}
+    .metrics-val { font-size: 28px; font-weight: 700; font-family: monospace; letter-spacing: -0.5px; }
+    .metrics-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    /* Console Logger Box */
+    #console { 
+      background: #070a12; 
+      color: #e2e8f0; 
+      padding: 18px; 
+      border-radius: 10px; 
+      height: 250px; 
+      overflow-y: auto; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px; 
+      border: 1px solid var(--border);
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+    }
+    .log-line { margin-bottom: 8px; line-height: 1.4; border-left: 2px solid rgba(255,255,255,0.1); padding-left: 8px; }
+    .log-time { color: var(--text-muted); margin-right: 6px; font-size: 12px; font-family: monospace; }
+
+    /* Pop-up Modal Overlay Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(3, 7, 18, 0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 32px;
+      border-radius: 20px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      transform: scale(0.95);
+      transition: transform 0.3s ease;
+    }
+    .modal-overlay.active .modal-content {
+      transform: scale(1);
+    }
+    .modal-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      color: var(--danger);
+    }
+    .modal-content h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .modal-content p {
+      color: var(--text-muted);
+      font-size: 15px;
+      margin-bottom: 24px;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    #setup-stage, #consent-stage { display: block; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="card">
-      <h2>OpenPayments Interledger Data Proxy Tracker</h2>
-      
-      <div class="wallet-info">👤 <b>User Account:</b> <span id="user-w">Loading...</span></div>
-      <div class="wallet-info">📡 <b>ISP Receiver:</b> <span id="isp-w">Loading...</span></div>
 
-      <a id="consent-btn" href="#" target="_blank" class="btn">⚠️ ACTION REQUIRED: Click Here to Authorize One-Time Billing Consent</a>
-      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-      <div class="grid">
-        <div class="item"><h3>Data Used</h3><div id="mb" style="font-size:24px; font-weight:bold;">0.0000 MB</div></div>
-        <div class="item"><h3>Accrued Fee</h3><div id="cost" style="font-size:24px; font-weight:bold; color:#10b981;">$0.0000</div></div>
-        <div class="item"><h3>Status</h3><div id="status" style="font-size:24px; font-weight:bold;">SETUP</div></div>
+  <div id="limit-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-icon">⚠️</div>
+      <h2>Session Ended</h2>
+      <p>Your session has ended automatically because your data budget has been fully used.</p>
+      <div class="modal-actions">
+        <button class="btn" onclick="executeCleanResetFlow()" style="width: 100%;">Continue</button>
       </div>
     </div>
-    <div class="card">
-      <h3>Live Open Payments / Interledger Ledger Stream Logs</h3>
-      <div id="console"></div>
-    </div>
   </div>
-  <script>
-    const ws = new WebSocket(`ws://${window.location.host}`);
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      document.getElementById('mb').innerText = data.metrics.totalMB + ' MB';
-      document.getElementById('cost').innerText = '$' + data.metrics.totalCost;
-      document.getElementById('status').innerText = data.metrics.status.toUpperCase();
-      
-      // Map metrics payload safely to UI elements
-      document.getElementById('user-w').innerText = data.metrics.userWallet;
-      document.getElementById('isp-w').innerText = data.metrics.ispWallet;
 
-      const btn = document.getElementById('consent-btn');
-      if (data.redirectUrl) {
-        btn.href = data.redirectUrl;
-        btn.style.display = 'block';
-      } else if (data.metrics.status === 'online') {
-        btn.style.display = 'none';
-      }
+  <div class="container">
+    
+    <header>
+      <div>
+        <h1>DataFlow Session Monitor</h1>
+        <p>Real-Time Data & Spending Tracker</p>
+      </div>
+      <div class="connection-badge">
+        <span id="badge-dot" class="badge-dot" style="background-color: var(--text-muted)"></span>
+        <span id="badge-text">Inactive</span>
+      </div>
+    </header>
 
-      if (data.log) {
-        const p = document.createElement('div');
-        p.innerText = `[${new Date().toLocaleTimeString()}] ${data.log}`;
-        const container = document.getElementById('console');
-        container.appendChild(p); container.scrollTop = container.scrollHeight;
-      }
-    };
-  </script>
-</body>
-</html>
+    <div class="card">
+      <div class="card-title">Network Connection</div>
+      <div class="wallet-grid">
+        <div class="wallet-box">
+          <label>Your Payment Wallet</label>
+          <div>Connected Account (Source Wallet)</div>
+          <p>Used to fund your data sessions</p>
+        </div>
+        <div class="wallet-box">
+          <label>Network Provider Connection</label>
+          <div>Service Destination (Auto-managed)</div>
+          <p>Where your data payment is delivered</p>
+        </div>
+      </div>
+
+      <div id="setup-stage">
+        <button id="stream-btn" class="btn" onclick="showBudgetInput()">Start Streaming</button>
+        <div id="budget-panel" style="display:none;">
+          <p style="font-size: 14px; font-weight: 600; color: var(--text-main);">Set your data budget limit amount ($):</p>
+          <div class="input-group">
+            <input type="number" id="budget-input" class="input-field" placeholder="e.g. 2.50" step="0.01" min="0.01">
+            <button class="btn" style="width:auto;" onclick="submitBudgetAllowance()">Authorize Session</button>
+          </div>
+          <div id="form-message"></div>
+        </div>
+      </div>
+
+      <div id="consent-stage" style="display:none;">
+        <a id="consent-btn" href="#" target="_blank" class="btn btn-danger">⚠️ Action Required: Click to approve your budget allowance at wallet</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Live Data Usage</div>
+      <div class="grid">
+        <div class="item">
+          <h3>Data Used</h3>
+          <div id="mb" class="metrics-val">0.00 MB</div>
+          <div class="metrics-sub">Active consumption tracker</div>
+        </div>
+        <div class="item">
+          <h3>Spending Summary</h3>
+          <div id="cost" class="metrics-val" style="color: var(--success);">$0.00</div>
+          <div id="cost-max" class="metrics-sub">Budget Limit: $0.00</div>
+        </div>
+        <div class="item">
+          <h3>Session Status</h3>
+          <div id="status" class="metrics-val" style="color: var(--text-muted);">Inactive</div>
+          <div id="status-sub" class="metrics-sub">Waiting to start</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Session Activity</div>
